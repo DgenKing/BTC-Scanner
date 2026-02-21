@@ -18,17 +18,17 @@ Monitors BTC/USDT on Binance and fires LONG/SHORT signals when multiple technica
 
 ## Backtest Results
 
-Tested on 240 days of 1h BTC data (Jun 2025 – Feb 2026, bull + bear market):
+Tested on 120 days of 1h BTC data (Oct 2025 – Feb 2026), optimized via 50-iteration MiniMax M2.5 session:
 
-| Metric | Result |
-|--------|--------|
-| Trades | 73 |
-| Win Rate | 42.5% |
-| Total P&L | +41.02% |
-| Profit Factor | 1.43 |
-| Max Drawdown | 1.45% |
-| Avg Win | +$44.47 |
-| Avg Loss | -$23.02 |
+| Metric | Baseline | Optimized |
+|--------|----------|-----------|
+| Trades | 45 | 41 |
+| Win Rate | 46.7% | **58.5%** |
+| Total P&L | +33.24% | **+62.17%** |
+| Profit Factor | 1.59 | **2.54** |
+| Max Drawdown | 1.11% | 1.21% |
+| Avg Win | +$42.85 | +$42.90 |
+| Avg Loss | -$23.55 | -$24.03 |
 
 ## Files
 
@@ -38,7 +38,7 @@ Tested on 240 days of 1h BTC data (Jun 2025 – Feb 2026, bull + bear market):
 | `backtester.py` | Historical replay against Binance kline data |
 | `paper_trader.py` | Virtual portfolio with TP/SL/trailing stop, persists to JSON |
 | `data_sources.py` | Sentiment — Fear&Greed Index, Reddit, CoinGecko, Google Trends |
-| `optimizer.py` | MiniMax M2.5 AI strategy optimizer *(coming soon)* |
+| `optimizer.py` | MiniMax M2.5 AI strategy optimizer |
 | `btc-scanner.conf` | Your local config with API keys *(gitignored)* |
 | `btc-scanner.conf.example` | Config template — copy this to get started |
 
@@ -62,7 +62,11 @@ Then edit `btc-scanner.conf` and fill in your API keys:
 
 **3. Run the scanner**
 ```bash
+# Single scan
 python3 btc-scanner.py
+
+# Continuous loop (scans every 60s)
+python3 btc-scanner.py --loop
 ```
 
 ## Backtesting
@@ -91,8 +95,8 @@ Enable virtual trading alongside live signals by editing `btc-scanner.conf`:
 PAPER_TRADING_ENABLED = True
 PAPER_STARTING_BALANCE = 10000
 PAPER_POSITION_SIZE_PCT = 10    # 10% of balance per trade
-PAPER_DEFAULT_SL_PCT = 2.0      # 2% stop loss
-PAPER_DEFAULT_TP_PCT = 4.0      # 4% take profit
+PAPER_DEFAULT_SL_PCT = 1.65     # 1.65% stop loss (optimized)
+PAPER_DEFAULT_TP_PCT = 5.25     # 5.25% take profit (optimized)
 ```
 
 Paper trading state persists across restarts in `paper_trades.json`.
@@ -107,7 +111,7 @@ MIN_TIMEFRAME = 1h              # Recommended: 1h
 TREND_FILTER_ENABLED = True     # Blocks counter-trend trades
 EMA_FAST = 50
 EMA_SLOW = 200
-COOLDOWN_CANDLES = 6            # Wait after stop loss before re-entering
+COOLDOWN_CANDLES = 12           # Wait after stop loss before re-entering
 
 [CONFLUENCE]
 MIN_CONFIRMATIONS = 3           # Out of 6 required to signal
@@ -122,7 +126,7 @@ The optimizer uses MiniMax M2.5 to analyze backtest results and generate improve
 python3 optimizer.py --iterations 3 --days 120 --timeframe 1h
 ```
 
-The optimizer never modifies your live `btc-scanner.conf` — all test configs are written to `btc-scanner_test1.conf`, `btc-scanner_test2.conf`, etc.
+The optimizer never modifies your live `btc-scanner.conf` — all test configs are written to `btc-scanner_testN.conf`. Non-improving configs are automatically deleted. Only configs that beat the baseline by 5%+ are kept.
 
 ## Data Sources (all free, no auth required)
 
