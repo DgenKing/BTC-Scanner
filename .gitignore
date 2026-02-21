@@ -1,5 +1,6 @@
 # Config with real API keys - never push this
 btc-scanner.conf
+btc-scanner.old.conf
 btc-scanner_test*.conf
 
 # Paper trading state - local only

@@ -203,12 +203,12 @@ class BacktestResult:
             "trades": self.trades_list
         }
 
-    def print_summary(self, days: int, timeframe: str, start_date: str, end_date: str):
+    def print_summary(self, days: int, timeframe: str, start_date: str, end_date: str, config_name: str = "btc-scanner.conf"):
         d = self.to_dict()
 
         print(f"\n{'='*60}")
         print(f"BACKTEST RESULTS — {days} days ({start_date} to {end_date})")
-        print(f"Timeframe: {timeframe} | Config: btc-scanner.conf")
+        print(f"Timeframe: {timeframe} | Config: {config_name}")
         print(f"{'='*60}")
 
         print(f"\nSignals Generated:  {d['total_signals']} ({d['long_signals']} LONG, {d['short_signals']} SHORT)")
@@ -254,7 +254,8 @@ def run_backtest(
     timeframe: str = "5m",
     config_path: str = "btc-scanner.conf",
     verbose: bool = False,
-    paper_config: Optional[Dict] = None
+    paper_config: Optional[Dict] = None,
+    config_name: str = None
 ) -> BacktestResult:
     """
     Run backtest on historical data.
@@ -265,10 +266,13 @@ def run_backtest(
         config_path: Path to config file
         verbose: Print detailed trade log
         paper_config: Optional paper trading config dict
+        config_name: Display name for config (defaults to config_path basename)
 
     Returns:
         BacktestResult object
     """
+    if config_name is None:
+        config_name = os.path.basename(config_path)
     # Load config - need to set CONFIG_FILE global first
     script_dir = os.path.dirname(os.path.abspath(__file__))
     config_file_path = os.path.join(script_dir, config_path)
@@ -327,7 +331,11 @@ def run_backtest(
     }
 
     # Sliding window - use same window size as live scanner (300 candles)
+    # But use less if we don't have enough data
     window_size = 300
+    if len(candles) < 300:
+        window_size = max(50, len(candles) // 2)  # Use at least half of available data
+        print(f"\n⚠️  Using smaller window ({window_size}) due to limited data ({len(candles)} candles)")
 
     print(f"\n🔄 Running backtest with {window_size}-candle window...")
     if config.get("TREND_FILTER_ENABLED", True):
@@ -412,7 +420,7 @@ def run_backtest(
     # Print results
     start_str = start_time.strftime("%Y-%m-%d")
     end_str = end_time.strftime("%Y-%m-%d")
-    result.print_summary(days, timeframe, start_str, end_str)
+    result.print_summary(days, timeframe, start_str, end_str, config_name)
     result.print_trade_log(verbose)
 
     # Always append to permanent backtest log

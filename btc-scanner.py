@@ -105,8 +105,17 @@ def get_klines(symbol="BTCUSDT", interval="4h", limit=300):
     """Get candlestick data from Binance."""
     url = f"{BINANCE_URL}/klines"
     params = {"symbol": symbol, "interval": interval, "limit": limit}
-    resp = requests.get(url, params=params, timeout=30)
-    data = resp.json()
+    for attempt in range(3):
+        try:
+            resp = requests.get(url, params=params, timeout=30)
+            data = resp.json()
+            break
+        except (requests.exceptions.SSLError, requests.exceptions.ConnectionError) as e:
+            if attempt < 2:
+                print(f"⚠️  Binance connection error, retrying ({attempt + 1}/3)...")
+                time.sleep(5)
+            else:
+                raise
     
     candles = []
     for k in data:
@@ -1143,9 +1152,20 @@ def run_scan():
         
         action = trade["action"]
 
-        # AI analysis - run every scan when signal is LONG or SHORT
+        # Paper Trading - initialize early so we can check positions before AI call
+        global _paper_trader
+        paper_enabled = config.get("PAPER_TRADING_ENABLED", False)
+
+        if paper_enabled and PAPER_TRADER_AVAILABLE:
+            if _paper_trader is None:
+                _paper_trader = create_paper_trader_from_config(config)
+                _paper_trader.load_state()
+                print(f"📋 Paper Trading initialized: ${_paper_trader.balance:.2f} balance")
+
+        # AI analysis - skip if already in a paper trade (saves API calls)
         ai_rec = None
-        if action in ("LONG", "SHORT"):
+        already_in_trade = paper_enabled and _paper_trader and _paper_trader.positions
+        if action in ("LONG", "SHORT") and not already_in_trade:
             api_key = config.get("DEEPSEEK_API_KEY", "")
             if api_key and api_key != "your-key-here":
                 print("🤖 Requesting AI trade analysis...")
@@ -1153,18 +1173,11 @@ def run_scan():
                 if ai_rec:
                     print_ai_recommendation(ai_rec)
                     log_ai_recommendation(ai_rec)
+        elif already_in_trade and action in ("LONG", "SHORT"):
+            print("⏭️  Skipping AI analysis — already in position")
 
         # Paper Trading - update and manage positions
-        global _paper_trader
-        paper_enabled = config.get("PAPER_TRADING_ENABLED", False)
-
         if paper_enabled and PAPER_TRADER_AVAILABLE:
-            # Initialize paper trader if not already done
-            if _paper_trader is None:
-                _paper_trader = create_paper_trader_from_config(config)
-                _paper_trader.load_state()
-                print(f"📋 Paper Trading initialized: ${_paper_trader.balance:.2f} balance")
-
             # Update existing positions with current price
             if _paper_trader.positions:
                 closed_positions = _paper_trader.update_positions(
