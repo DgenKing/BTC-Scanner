@@ -1,0 +1,25 @@
+# Config with real API keys - never push this
+btc-scanner.conf
+btc-scanner_test*.conf
+
+# Paper trading state - local only
+paper_trades.json
+
+# Databases
+*.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Logs (optional - remove these lines if you want logs in git)
+backtest_log.txt
+optimizer_log.txt
+sentiment_log.txt
+backtest_results.json
